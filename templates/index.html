@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Web Scraper — Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: {
+        brand: {
+          50: '#eef9ff', 100: '#d9f1ff', 200: '#bce8ff', 300: '#8edaff',
+          400: '#59c3ff', 500: '#33a5ff', 600: '#1a86f5', 700: '#136ee1',
+          800: '#1659b6', 900: '#184b8f', 950: '#132f57',
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  [x-cloak] { display: none !important; }
+  .fade-in { animation: fadeIn .4s ease-out; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
+  @keyframes pulse-dot { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+  .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+  .table-row:hover { background: #f8fafc; }
+</style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 antialiased min-h-screen" x-data="app()" x-init="init()">
+
+<!-- ═══ TOP NAV ═══ -->
+<nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+      </div>
+      <div>
+        <div class="font-bold text-gray-900 text-sm leading-tight">Web Scraper</div>
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">v2.0 Dashboard</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <template x-if="jobStatus.running">
+        <div class="flex items-center gap-2 bg-brand-50 text-brand-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+          <span class="w-2 h-2 rounded-full bg-brand-500 pulse-dot"></span>
+          Scraping...
+        </div>
+      </template>
+      <div class="text-xs text-gray-500">
+        <span x-text="stats.total_runs"></span> Runs · <span x-text="stats.total_items"></span> Items
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-6 py-8">
+
+  <!-- ═══ STATS CARDS ═══ -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 fade-in">
+    <div class="bg-white rounded-2xl p-5 border border-gray-200">
+      <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Total Runs</div>
+      <div class="text-3xl font-bold text-gray-900" x-text="stats.total_runs">0</div>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-gray-200">
+      <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Gescrapte Items</div>
+      <div class="text-3xl font-bold text-gray-900" x-text="stats.total_items">0</div>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-gray-200">
+      <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Erfolgreich</div>
+      <div class="text-3xl font-bold text-green-600" x-text="stats.completed_runs">0</div>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-gray-200">
+      <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Letzter Run</div>
+      <div class="text-sm font-semibold text-gray-900" x-text="stats.last_run ? stats.last_run.started_at.substring(0,16).replace('T',' ') : '—'">—</div>
+    </div>
+  </div>
+
+  <!-- ═══ SCRAPE PANEL ═══ -->
+  <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-8 fade-in" style="animation-delay:.05s">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="font-bold text-lg text-gray-900">Neuer Scrape-Job</h2>
+      <template x-if="jobStatus.running">
+        <span class="text-xs text-brand-600 font-semibold" x-text="jobStatus.status"></span>
+      </template>
+    </div>
+
+    <div class="grid md:grid-cols-12 gap-4 items-end">
+      <div class="md:col-span-5">
+        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">URL</label>
+        <input type="url" x-model="scrapeUrl"
+          class="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition outline-none text-sm"
+          placeholder="https://books.toscrape.com">
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Max. Seiten</label>
+        <div class="flex items-center gap-3">
+          <input type="range" x-model="scrapePages" min="0" max="50" class="flex-1 accent-brand-600">
+          <span class="text-sm font-mono font-bold w-8 text-center" x-text="scrapePages == 0 ? 'Alle' : scrapePages"></span>
+        </div>
+      </div>
+      <div class="md:col-span-3">
+        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Export-Formate</label>
+        <div class="flex gap-2">
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" value="excel" x-model="scrapeFormats" class="rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+            Excel
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" value="csv" x-model="scrapeFormats" class="rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+            CSV
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" value="json" x-model="scrapeFormats" class="rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+            JSON
+          </label>
+        </div>
+      </div>
+      <div class="md:col-span-2">
+        <button @click="startScrape()" :disabled="jobStatus.running"
+          class="w-full bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-brand-600/20">
+          <template x-if="!jobStatus.running">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+          </template>
+          <template x-if="jobStatus.running">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+          </template>
+          <span x-text="jobStatus.running ? 'Läuft...' : 'Starten'"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <template x-if="jobStatus.running || jobStatus.status">
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+          <span x-text="jobStatus.status"></span>
+          <span x-text="jobStatus.items_count + ' Items'"></span>
+        </div>
+        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-brand-500 rounded-full transition-all duration-500"
+            :class="jobStatus.running ? 'animate-pulse' : ''"
+            :style="'width:' + (jobStatus.running ? '60' : jobStatus.error ? '100' : '100') + '%'"
+            :class="jobStatus.error ? 'bg-red-500' : 'bg-brand-500'">
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ═══ TABS ═══ -->
+  <div class="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
+    <button @click="activeTab = 'results'" :class="activeTab === 'results' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+      class="px-4 py-2 rounded-lg text-sm font-semibold transition">
+      Ergebnisse <span class="text-xs ml-1 opacity-60" x-text="'(' + results.length + ')'"></span>
+    </button>
+    <button @click="activeTab = 'history'; loadHistory()" :class="activeTab === 'history' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+      class="px-4 py-2 rounded-lg text-sm font-semibold transition">
+      History
+    </button>
+  </div>
+
+  <!-- ═══ TAB: RESULTS ═══ -->
+  <div x-show="activeTab === 'results'" x-cloak class="fade-in">
+    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+
+      <!-- Toolbar -->
+      <div class="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
+        <div class="relative flex-1 min-w-[200px]">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+          <input type="text" x-model="searchQuery" @input.debounce.300ms="loadResults()"
+            placeholder="Suchen..." class="w-full pl-9 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-200">
+        </div>
+        <select x-model="minRating" @change="loadResults()" class="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm outline-none">
+          <option value="0">Alle Ratings</option>
+          <option value="3">3+ Sterne</option>
+          <option value="4">4+ Sterne</option>
+          <option value="5">5 Sterne</option>
+        </select>
+        <div class="flex gap-1.5 ml-auto">
+          <button @click="downloadFile('excel')" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 text-xs font-semibold transition border border-green-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            Excel
+          </button>
+          <button @click="downloadFile('csv')" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-semibold transition border border-blue-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            CSV
+          </button>
+          <button @click="downloadFile('json')" class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold transition border border-purple-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-left">
+              <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-8">#</th>
+              <th @click="sortBy('title')" class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:text-brand-600 transition">
+                Titel
+                <span x-show="sortField === 'title'" x-text="sortOrder === 'asc' ? ' ↑' : ' ↓'"></span>
+              </th>
+              <th @click="sortBy('price')" class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:text-brand-600 transition w-28">
+                Preis
+                <span x-show="sortField === 'price'" x-text="sortOrder === 'asc' ? ' ↑' : ' ↓'"></span>
+              </th>
+              <th @click="sortBy('rating')" class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:text-brand-600 transition w-36">
+                Rating
+                <span x-show="sortField === 'rating'" x-text="sortOrder === 'asc' ? ' ↑' : ' ↓'"></span>
+              </th>
+              <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-20">Link</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(item, idx) in results" :key="idx">
+              <tr class="table-row border-t border-gray-100 transition">
+                <td class="px-4 py-3 text-gray-400 text-xs font-mono" x-text="idx + 1"></td>
+                <td class="px-4 py-3 font-medium text-gray-900" x-text="item.title"></td>
+                <td class="px-4 py-3 font-mono font-semibold text-gray-700" x-text="item.price"></td>
+                <td class="px-4 py-3">
+                  <div class="flex gap-0.5">
+                    <template x-for="s in 5">
+                      <svg class="w-4 h-4" :class="s <= (item.rating || 0) ? 'text-amber-400' : 'text-gray-200'" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.539 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.05 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z"/>
+                      </svg>
+                    </template>
+                  </div>
+                </td>
+                <td class="px-4 py-3">
+                  <template x-if="item.url">
+                    <a :href="item.url" target="_blank" class="text-brand-600 hover:text-brand-800 transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    </a>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <template x-if="results.length === 0 && !jobStatus.running">
+        <div class="py-16 text-center text-gray-400">
+          <svg class="w-12 h-12 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+          <p class="font-semibold">Keine Ergebnisse</p>
+          <p class="text-sm mt-1">Starte einen Scrape-Job um Daten zu sehen</p>
+        </div>
+      </template>
+
+      <!-- Footer -->
+      <template x-if="results.length > 0">
+        <div class="px-4 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
+          <span x-text="results.length + ' Ergebnisse'"></span>
+          <span>Sortiert nach <span class="font-semibold" x-text="sortField"></span></span>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: HISTORY ═══ -->
+  <div x-show="activeTab === 'history'" x-cloak class="fade-in">
+    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 text-left">
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-12">#</th>
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">URL</th>
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider">Zeitpunkt</th>
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-20 text-right">Items</th>
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-24">Status</th>
+            <th class="px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wider w-32">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="run in history" :key="run.id">
+            <tr class="table-row border-t border-gray-100">
+              <td class="px-4 py-3 font-mono text-gray-400 text-xs" x-text="run.id"></td>
+              <td class="px-4 py-3 text-gray-700 truncate max-w-xs" x-text="run.url"></td>
+              <td class="px-4 py-3 text-gray-500 text-xs" x-text="run.started_at ? run.started_at.substring(0,19).replace('T',' ') : ''"></td>
+              <td class="px-4 py-3 font-bold text-right" x-text="run.items_found"></td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold"
+                  :class="run.status === 'completed' ? 'bg-green-50 text-green-700' : run.status === 'running' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'">
+                  <span class="w-1.5 h-1.5 rounded-full"
+                    :class="run.status === 'completed' ? 'bg-green-500' : run.status === 'running' ? 'bg-blue-500' : 'bg-red-500'"></span>
+                  <span x-text="run.status"></span>
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex gap-1">
+                  <button @click="loadResultsForRun(run.id)" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-brand-600 transition" title="Ergebnisse anzeigen">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                  <button @click="deleteRun(run.id)" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Löschen">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <template x-if="history.length === 0">
+        <div class="py-12 text-center text-gray-400">
+          <p class="font-semibold">Noch keine Runs</p>
+          <p class="text-sm mt-1">Starte deinen ersten Scrape-Job</p>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="max-w-7xl mx-auto px-6 py-6 text-center text-xs text-gray-400">
+  Python Web Scraper v2.0 — Dashboard
+</footer>
+
+<script>
+function app() {
+  return {
+    // State
+    activeTab: 'results',
+    scrapeUrl: 'https://books.toscrape.com',
+    scrapePages: 5,
+    scrapeFormats: ['excel'],
+    results: [],
+    history: [],
+    stats: { total_runs: 0, total_items: 0, completed_runs: 0, last_run: null },
+    jobStatus: { running: false, progress: 0, status: '', items_count: 0, error: null },
+    searchQuery: '',
+    minRating: 0,
+    sortField: 'title',
+    sortOrder: 'asc',
+    pollInterval: null,
+    selectedRunId: null,
+
+    async init() {
+      await this.loadStats();
+      await this.loadResults();
+    },
+
+    async loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        this.stats = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async loadResults() {
+      try {
+        const params = new URLSearchParams({
+          sort: this.sortField,
+          order: this.sortOrder,
+          search: this.searchQuery,
+          min_rating: this.minRating,
+        });
+        if (this.selectedRunId) params.set('run_id', this.selectedRunId);
+        const res = await fetch('/api/results?' + params);
+        const data = await res.json();
+        this.results = data.items || [];
+      } catch (e) { console.error(e); }
+    },
+
+    async loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        this.history = data.runs || [];
+      } catch (e) { console.error(e); }
+    },
+
+    async loadResultsForRun(runId) {
+      this.selectedRunId = runId;
+      this.activeTab = 'results';
+      await this.loadResults();
+    },
+
+    sortBy(field) {
+      if (this.sortField === field) {
+        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortField = field;
+        this.sortOrder = field === 'rating' || field === 'price' ? 'desc' : 'asc';
+      }
+      this.loadResults();
+    },
+
+    async startScrape() {
+      if (this.jobStatus.running) return;
+      const formats = this.scrapeFormats.join(',') || 'excel';
+      const params = new URLSearchParams({
+        url: this.scrapeUrl,
+        pages: this.scrapePages,
+        formats: formats,
+      });
+      try {
+        await fetch('/api/scrape?' + params, { method: 'POST' });
+        this.selectedRunId = null;
+        this.startPolling();
+      } catch (e) { console.error(e); }
+    },
+
+    startPolling() {
+      if (this.pollInterval) clearInterval(this.pollInterval);
+      this.pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/status');
+          this.jobStatus = await res.json();
+          if (!this.jobStatus.running) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+            await this.loadResults();
+            await this.loadStats();
+          }
+        } catch (e) { console.error(e); }
+      }, 800);
+    },
+
+    downloadFile(format) {
+      const params = this.selectedRunId ? `?run_id=${this.selectedRunId}` : '';
+      window.open(`/api/download/${format}${params}`, '_blank');
+    },
+
+    async deleteRun(runId) {
+      if (!confirm('Run #' + runId + ' wirklich löschen?')) return;
+      try {
+        await fetch('/api/history/' + runId, { method: 'DELETE' });
+        await this.loadHistory();
+        await this.loadStats();
+        if (this.selectedRunId === runId) {
+          this.selectedRunId = null;
+          await this.loadResults();
+        }
+      } catch (e) { console.error(e); }
+    },
+  };
+}
+</script>
+
+</body>
+</html>
