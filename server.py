@@ -23,11 +23,13 @@ from scraper.core import scrape
 from scraper.exporters import to_dataframe
 from scraper.storage import Database
 
-app = FastAPI(title="Web Scraper UI", version="2.0")
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = Path(__file__).resolve().parent
 
-DB_PATH = Path("output/scraper.db")
-OUTPUT_DIR = Path("output")
+app = FastAPI(title="Web Scraper UI", version="2.0")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+DB_PATH = BASE_DIR / "output" / "scraper.db"
+OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # DB beim Start initialisieren
