@@ -68,10 +68,7 @@ async def debug():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    try:
-        return templates.TemplateResponse("index.html", {"request": request})
-    except Exception as e:
-        return HTMLResponse(f"<pre>Error: {e}\nBASE_DIR: {BASE_DIR}\nTemplates: {BASE_DIR / 'templates'}\nExists: {(BASE_DIR / 'templates').exists()}</pre>", status_code=500)
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 # ─── API: Scraping ──────────────────────────────────
