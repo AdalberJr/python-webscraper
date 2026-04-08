@@ -28,7 +28,11 @@ templates = Jinja2Templates(directory="templates")
 
 DB_PATH = Path("output/scraper.db")
 OUTPUT_DIR = Path("output")
-OUTPUT_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# DB beim Start initialisieren
+_init_db = Database(DB_PATH)
+_init_db.close()
 
 # Globaler State für laufende Jobs
 active_job = {
@@ -140,21 +144,22 @@ async def get_results(
     max_price: float = 0,
 ):
     """Gibt Scrape-Ergebnisse zurück."""
-    if run_id:
-        db = get_db()
-        items = db.get_items_by_run(run_id)
-        db.close()
-    elif active_job["items"]:
-        items = active_job["items"]
-    else:
-        # Letzten Run aus DB holen
-        db = get_db()
-        runs = db.get_run_history(1)
-        if runs:
-            items = db.get_items_by_run(runs[0]["id"])
+    items = []
+    try:
+        if run_id:
+            db = get_db()
+            items = db.get_items_by_run(run_id)
+            db.close()
+        elif active_job["items"]:
+            items = active_job["items"]
         else:
-            items = []
-        db.close()
+            db = get_db()
+            runs = db.get_run_history(1)
+            if runs:
+                items = db.get_items_by_run(runs[0]["id"])
+            db.close()
+    except Exception:
+        items = active_job.get("items", [])
 
     # Filter
     if search:
@@ -193,10 +198,13 @@ async def get_results(
 
 @app.get("/api/history")
 async def get_history(limit: int = 20):
-    db = get_db()
-    runs = db.get_run_history(limit)
-    db.close()
-    return {"runs": runs}
+    try:
+        db = get_db()
+        runs = db.get_run_history(limit)
+        db.close()
+        return {"runs": runs}
+    except Exception:
+        return {"runs": []}
 
 
 @app.delete("/api/history/{run_id}")
@@ -267,18 +275,25 @@ async def download(format: str, run_id: Optional[int] = None):
 
 @app.get("/api/stats")
 async def get_stats():
-    db = get_db()
-    runs = db.get_run_history(100)
-    total_items = sum(r["items_found"] for r in runs)
-    completed = sum(1 for r in runs if r["status"] == "completed")
-    db.close()
-
-    return {
-        "total_runs": len(runs),
-        "total_items": total_items,
-        "completed_runs": completed,
-        "last_run": runs[0] if runs else None,
-    }
+    try:
+        db = get_db()
+        runs = db.get_run_history(100)
+        total_items = sum(r["items_found"] for r in runs)
+        completed = sum(1 for r in runs if r["status"] == "completed")
+        db.close()
+        return {
+            "total_runs": len(runs),
+            "total_items": total_items,
+            "completed_runs": completed,
+            "last_run": runs[0] if runs else None,
+        }
+    except Exception:
+        return {
+            "total_runs": 0,
+            "total_items": 0,
+            "completed_runs": 0,
+            "last_run": None,
+        }
 
 
 if __name__ == "__main__":
