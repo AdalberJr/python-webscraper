@@ -53,9 +53,25 @@ def get_db() -> Database:
 
 # ─── Pages ──────────────────────────────────────────
 
+@app.get("/debug")
+async def debug():
+    """Debug-Info für Deployment-Probleme."""
+    template_dir = BASE_DIR / "templates"
+    return {
+        "base_dir": str(BASE_DIR),
+        "template_dir": str(template_dir),
+        "template_exists": template_dir.exists(),
+        "template_files": [f.name for f in template_dir.iterdir()] if template_dir.exists() else [],
+        "cwd": str(Path.cwd()),
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    try:
+        return templates.TemplateResponse("index.html", {"request": request})
+    except Exception as e:
+        return HTMLResponse(f"<pre>Error: {e}\nBASE_DIR: {BASE_DIR}\nTemplates: {BASE_DIR / 'templates'}\nExists: {(BASE_DIR / 'templates').exists()}</pre>", status_code=500)
 
 
 # ─── API: Scraping ──────────────────────────────────
