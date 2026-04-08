@@ -51,6 +51,14 @@ def get_db() -> Database:
     return Database(DB_PATH)
 
 
+# ─── Health Check (für UptimeRobot) ─────────────────
+
+@app.get("/health")
+async def health():
+    """Health-Endpunkt — hält den Server wach."""
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
 # ─── Pages ──────────────────────────────────────────
 
 @app.get("/debug")
